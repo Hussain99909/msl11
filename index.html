@@ -134,8 +134,12 @@
         
         .chat-action-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; transition: 0.2s; }
         .chat-action-btn:hover { opacity: 0.7; }
+        
         .recording { color: red !important; animation: pulse 1s infinite; }
+        .unread-pulse { animation: pulseBadge 1.5s infinite; }
+        
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        @keyframes pulseBadge { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
@@ -286,7 +290,7 @@
     let chatListenerRef = null;
     let statusListenerRef = null;
     let unreadMessagesTracker = new Map();
-    let globalUsersStatus = {}; // تخزين حالة الاتصال لجميع المستخدمين
+    let globalUsersStatus = {}; 
     let chatMetadata = {};
 
     let mediaRecorder;
@@ -338,7 +342,7 @@
         document.getElementById('userNameDisplay').innerText = currentUser;
         
         managePresence();
-        initGlobalStatusListener(); // تشغيل مراقب الحالة الشامل
+        initGlobalStatusListener(); 
         initGlobalChatListener(); 
         
         const savedCurrentSession = localStorage.getItem('companion_current_session_' + currentUser);
@@ -349,11 +353,9 @@
         renderSessionList();
     }
 
-    // --- مراقب حالة الاتصال الشامل (متصل/غير متصل) ---
     function initGlobalStatusListener() {
         db.ref('/users_status/').on('value', snap => {
             globalUsersStatus = snap.val() || {};
-            // تحديث قائمة الأسماء فقط إذا كانت الواجهة معروضة حالياً
             if (document.getElementById('chatListHeader').style.display !== 'none') {
                 renderChatUsersList();
             }
@@ -366,12 +368,12 @@
         Object.keys(USERS).forEach(partner => {
             if (partner === currentUser) return; 
             
-            if (!chatMetadata[partner]) chatMetadata[partner] = { lastMsgTime: 0, unreadCount: 0, lastMsgText: '' };
+            if (!chatMetadata[partner]) chatMetadata[partner] = { lastMsgTime: 0, unreadCount: 0, lastMsgText: '', isInitialLoad: true };
             
             const roomId = getRoomId(currentUser, partner);
             const chatRef = db.ref('chats/' + roomId);
             
-            chatRef.on('child_added', (snapshot) => {
+            chatRef.limitToLast(20).on('child_added', (snapshot) => {
                 const msg = snapshot.val();
                 const msgId = snapshot.key;
                 
@@ -383,10 +385,18 @@
                 if (msg.sender !== currentUser && !msg.isRead) {
                     unreadMessagesTracker.set(msgId, msg.sender);
                     chatMetadata[partner].unreadCount++;
+                    
+                    if (!chatMetadata[partner].isInitialLoad && currentChatPartner !== partner) {
+                        showNewMessageAlert(partner);
+                    }
                 }
                 
                 updateGlobalBadge();
                 if (document.getElementById('chatListHeader').style.display !== 'none') renderChatUsersList();
+            });
+
+            chatRef.limitToLast(20).once('value', () => {
+                chatMetadata[partner].isInitialLoad = false;
             });
 
             chatRef.on('child_changed', (snapshot) => {
@@ -407,7 +417,13 @@
         const badge = document.getElementById('globalUnreadBadge');
         if(badge) {
             badge.innerText = unreadMessagesTracker.size;
-            badge.style.display = unreadMessagesTracker.size > 0 ? 'inline-block' : 'none';
+            if(unreadMessagesTracker.size > 0) {
+                badge.style.display = 'inline-block';
+                badge.classList.add('unread-pulse');
+            } else {
+                badge.style.display = 'none';
+                badge.classList.remove('unread-pulse');
+            }
         }
     }
 
@@ -433,7 +449,6 @@
                 timeStr = isToday ? date.toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'}) : date.toLocaleDateString('ar-IQ', {month:'short', day:'numeric'});
             }
             
-            // جلب حالة الاتصال ووضع العلامة والكلمة بناءً عليها
             const isOnline = globalUsersStatus[partner] && globalUsersStatus[partner].online;
             const statusIndicator = isOnline ? '<span style="color:#27ae60; font-size:11px; font-weight:bold; background: #eafaf1; padding: 2px 6px; border-radius: 10px;">🟢 متصل</span>' : '';
             
@@ -462,7 +477,6 @@
         document.getElementById('chatListHeader').style.display = 'flex';
         document.getElementById('chatUsersList').style.display = 'block';
         document.getElementById('activeChatArea').style.display = 'none';
-        document.getElementById('globalUnreadBadge').style.display = 'none';
     }
 
     function loadChatWith(partnerName) {
@@ -498,10 +512,11 @@
         const roomId = getRoomId(currentUser, partnerName);
 
         if (chatListenerRef) chatListenerRef.off();
-        const chatRef = db.ref('chats/' + roomId);
-        chatListenerRef = chatRef; 
+        
+        // ربط المستمع كـ Query محدد بدلاً من مسار عام للتمكن من فصله لاحقاً بأمان
+        chatListenerRef = db.ref('chats/' + roomId).limitToLast(50);
 
-        chatRef.limitToLast(50).on('child_added', (snapshot) => {
+        chatListenerRef.on('child_added', (snapshot) => {
             const msg = snapshot.val();
             msg.id = snapshot.key; 
             
@@ -512,6 +527,13 @@
             
             renderMessage(msg);
             messagesContainer.scrollTop = messagesContainer.scrollHeight; 
+        });
+
+        // المستمع الجديد لمراقبة التغييرات المباشرة (الصحين الزرق)
+        chatListenerRef.on('child_changed', (snapshot) => {
+            const msg = snapshot.val();
+            msg.id = snapshot.key;
+            renderMessage(msg);
         });
     }
 
@@ -524,7 +546,17 @@
 
     function renderMessage(msg) {
         const container = document.getElementById('messagesContainer');
-        const div = document.createElement('div');
+        
+        // البحث عن الرسالة إذا كانت موجودة مسبقاً (لتحديثها بدل تكرارها)
+        let div = document.getElementById('msg-' + msg.id);
+        let isNew = false;
+        
+        if (!div) {
+            div = document.createElement('div');
+            div.id = 'msg-' + msg.id;
+            isNew = true;
+        }
+
         const isMe = msg.sender === currentUser;
         div.className = `message-bubble ${isMe ? 'msg-sent' : 'msg-received'}`;
         
@@ -541,7 +573,9 @@
         }
         
         const time = new Date(msg.timestamp).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'});
-        const tickMark = isMe ? (msg.isRead ? '<span style="color:#3498db">✓✓</span>' : '✓') : '';
+        
+        // تحديث العلامات: رمادي للرسالة المرسلة، أزرق عريض للمقروءة
+        const tickMark = isMe ? (msg.isRead ? '<span style="color:#3498db; font-weight:bold; font-size:12px;">✓✓</span>' : '<span style="color:#999; font-size:12px;">✓</span>') : '';
         
         div.innerHTML = `
             <div style="color: #2c3e50;">${contentHtml}</div>
@@ -549,7 +583,10 @@
                 ${time} ${tickMark}
             </div>
         `;
-        container.appendChild(div);
+        
+        if (isNew) {
+            container.appendChild(div);
+        }
     }
 
     function escapeChatHtml(text) {
@@ -805,6 +842,26 @@
         const msg = document.createElement('div'); msg.id = 'appToast'; msg.innerText = msgText;
         msg.style = "position:fixed; top:70px; left:50%; transform:translateX(-50%); background:var(--dark); color:white; padding:8px 20px; border-radius:20px; font-size:13px; z-index:9999; box-shadow:0 4px 10px rgba(0,0,0,0.2);";
         document.body.appendChild(msg); setTimeout(() => msg.remove(), 2500);
+    }
+    
+    function showNewMessageAlert(senderName) {
+        const oldToast = document.getElementById('msgAlertToast'); 
+        if(oldToast) oldToast.remove();
+        
+        const msg = document.createElement('div'); 
+        msg.id = 'msgAlertToast'; 
+        msg.innerHTML = `💬 رسالة جديدة من د. <b>${senderName}</b>`;
+        
+        msg.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:white; padding:12px 25px; border-radius:10px; font-size:15px; z-index:9999; box-shadow:0 5px 15px rgba(0,0,0,0.3); cursor: pointer; transition: 0.3s; border: 2px solid white;";
+        
+        msg.onclick = () => {
+            msg.remove();
+            openModal('chatModal');
+            loadChatWith(senderName);
+        };
+        
+        document.body.appendChild(msg); 
+        setTimeout(() => { if(document.getElementById('msgAlertToast')) msg.remove(); }, 4000);
     }
 </script>
 </body>
