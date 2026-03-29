@@ -17,7 +17,7 @@
             --dark: #2c3e50;
             --bg: #f4f6f8;
             --warning: #f39c12;
-            --wa-green: #075e54; /* لون واتساب */
+            --wa-green: #075e54; 
             --wa-light: #25D366;
         }
         body {
@@ -117,12 +117,11 @@
         .btn-load { background: var(--primary); }
         .btn-delete { background: var(--danger); }
 
-        /* --- تنسيقات نظام الدردشة المحدث (شكل واتساب) --- */
         .chat-list-item { display: flex; padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; align-items: center; background: white; transition: background 0.2s; }
         .chat-list-item:active { background: #f9f9f9; }
         .chat-list-avatar { width: 45px; height: 45px; border-radius: 50%; background: #dfe6e9; display: flex; justify-content: center; align-items: center; font-size: 20px; margin-left: 15px; flex-shrink: 0; }
         .chat-list-info { flex: 1; overflow: hidden; text-align: right; }
-        .chat-list-name-time { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .chat-list-name-time { display: flex; justify-content: space-between; margin-bottom: 5px; align-items: center;}
         .chat-list-name { font-weight: bold; font-size: 16px; color: #2d3436; }
         .chat-list-time { font-size: 12px; color: #b2bec3; }
         .chat-list-preview-badge { display: flex; justify-content: space-between; align-items: center; }
@@ -206,7 +205,7 @@
             </div>
 
             <div id="chatUsersList" style="flex: 1; background: white; overflow-y: auto;">
-                </div>
+            </div>
             
             <div id="activeChatArea" style="display:none; flex:1; flex-direction:column; position: relative; height: 100%;">
                 
@@ -219,7 +218,7 @@
                 </div>
                 
                 <div id="messagesContainer" style="flex:1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; background: #e5ddd5;">
-                    </div>
+                </div>
                 
                 <div id="chatInputArea" style="padding: 10px; background: #f0f2f5; display: flex; gap: 8px; align-items: center;">
                     <input type="file" id="fileInput" style="display:none;" onchange="handleFileUpload(event)">
@@ -287,8 +286,7 @@
     let chatListenerRef = null;
     let statusListenerRef = null;
     let unreadMessagesTracker = new Map();
-    
-    // سجل تخزين معلومات الدردشة لترتيبها الذكي
+    let globalUsersStatus = {}; // تخزين حالة الاتصال لجميع المستخدمين
     let chatMetadata = {};
 
     let mediaRecorder;
@@ -340,6 +338,7 @@
         document.getElementById('userNameDisplay').innerText = currentUser;
         
         managePresence();
+        initGlobalStatusListener(); // تشغيل مراقب الحالة الشامل
         initGlobalChatListener(); 
         
         const savedCurrentSession = localStorage.getItem('companion_current_session_' + currentUser);
@@ -350,7 +349,17 @@
         renderSessionList();
     }
 
-    // --- نظام تعقب الرسائل وترتيب القائمة ---
+    // --- مراقب حالة الاتصال الشامل (متصل/غير متصل) ---
+    function initGlobalStatusListener() {
+        db.ref('/users_status/').on('value', snap => {
+            globalUsersStatus = snap.val() || {};
+            // تحديث قائمة الأسماء فقط إذا كانت الواجهة معروضة حالياً
+            if (document.getElementById('chatListHeader').style.display !== 'none') {
+                renderChatUsersList();
+            }
+        });
+    }
+
     function initGlobalChatListener() {
         unreadMessagesTracker.clear(); 
         
@@ -362,12 +371,10 @@
             const roomId = getRoomId(currentUser, partner);
             const chatRef = db.ref('chats/' + roomId);
             
-            // مراقبة الرسائل الجديدة لتحديث القائمة
             chatRef.on('child_added', (snapshot) => {
                 const msg = snapshot.val();
                 const msgId = snapshot.key;
                 
-                // تحديث آخر رسالة ووقتها
                 if (msg.timestamp > chatMetadata[partner].lastMsgTime) {
                     chatMetadata[partner].lastMsgTime = msg.timestamp;
                     chatMetadata[partner].lastMsgText = msg.type === 'text' ? msg.content : (msg.type === 'session' ? '📁 جلسة عمل' : (msg.type === 'audio' ? '🎙️ مقطع صوتي' : '📎 مرفق'));
@@ -379,10 +386,9 @@
                 }
                 
                 updateGlobalBadge();
-                if (document.getElementById('chatUsersList').style.display !== 'none') renderChatUsersList();
+                if (document.getElementById('chatListHeader').style.display !== 'none') renderChatUsersList();
             });
 
-            // مراقبة الرسائل التي تمت قراءتها
             chatRef.on('child_changed', (snapshot) => {
                 const msg = snapshot.val();
                 const msgId = snapshot.key;
@@ -391,7 +397,7 @@
                     unreadMessagesTracker.delete(msgId);
                     chatMetadata[partner].unreadCount = Math.max(0, chatMetadata[partner].unreadCount - 1);
                     updateGlobalBadge();
-                    if (document.getElementById('chatUsersList').style.display !== 'none') renderChatUsersList();
+                    if (document.getElementById('chatListHeader').style.display !== 'none') renderChatUsersList();
                 }
             });
         });
@@ -405,18 +411,16 @@
         }
     }
 
-    // --- رسم قائمة المحادثات (بشكل واتساب) ---
     function renderChatUsersList() {
         const listContainer = document.getElementById('chatUsersList');
         listContainer.innerHTML = '';
         
-        // ترتيب المستخدمين حسب أحدث رسالة
         const sortedPartners = Object.keys(USERS)
             .filter(u => u !== currentUser)
             .sort((a, b) => {
                 const timeA = chatMetadata[a] ? chatMetadata[a].lastMsgTime : 0;
                 const timeB = chatMetadata[b] ? chatMetadata[b].lastMsgTime : 0;
-                return timeB - timeA; // الأحدث أولاً
+                return timeB - timeA; 
             });
 
         sortedPartners.forEach(partner => {
@@ -429,13 +433,20 @@
                 timeStr = isToday ? date.toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'}) : date.toLocaleDateString('ar-IQ', {month:'short', day:'numeric'});
             }
             
+            // جلب حالة الاتصال ووضع العلامة والكلمة بناءً عليها
+            const isOnline = globalUsersStatus[partner] && globalUsersStatus[partner].online;
+            const statusIndicator = isOnline ? '<span style="color:#27ae60; font-size:11px; font-weight:bold; background: #eafaf1; padding: 2px 6px; border-radius: 10px;">🟢 متصل</span>' : '';
+            
             const div = document.createElement('div');
             div.className = 'chat-list-item';
             div.innerHTML = `
                 <div class="chat-list-avatar">👤</div>
                 <div class="chat-list-info">
                     <div class="chat-list-name-time">
-                        <span class="chat-list-name">${partner}</span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="chat-list-name">${partner}</span>
+                            ${statusIndicator}
+                        </div>
                         <span class="chat-list-time">${timeStr}</span>
                     </div>
                     <div class="chat-list-preview-badge">
@@ -448,19 +459,16 @@
             listContainer.appendChild(div);
         });
         
-        // إظهار القائمة وإخفاء الدردشة
         document.getElementById('chatListHeader').style.display = 'flex';
         document.getElementById('chatUsersList').style.display = 'block';
         document.getElementById('activeChatArea').style.display = 'none';
         document.getElementById('globalUnreadBadge').style.display = 'none';
     }
 
-    // --- فتح محادثة محددة ---
     function loadChatWith(partnerName) {
         currentChatPartner = partnerName;
         document.getElementById('chatHeaderName').innerText = partnerName;
         
-        // تبديل الواجهة (إخفاء القائمة، إظهار الدردشة)
         document.getElementById('chatListHeader').style.display = 'none';
         document.getElementById('chatUsersList').style.display = 'none';
         document.getElementById('activeChatArea').style.display = 'flex';
@@ -497,7 +505,6 @@
             const msg = snapshot.val();
             msg.id = snapshot.key; 
             
-            // تعيين الرسائل كمقروءة فوراً عند فتح المحادثة
             if (msg.sender !== currentUser && !msg.isRead) {
                 db.ref('chats/' + roomId + '/' + msg.id).update({ isRead: true });
                 chatMetadata[partnerName].unreadCount = Math.max(0, chatMetadata[partnerName].unreadCount - 1);
@@ -508,7 +515,6 @@
         });
     }
 
-    // --- زر الرجوع لقائمة الأسماء ---
     function backToChatList() {
         currentChatPartner = null;
         if (chatListenerRef) chatListenerRef.off();
