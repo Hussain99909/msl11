@@ -19,6 +19,9 @@
             --warning: #f39c12;
             --wa-green: #075e54; 
             --wa-light: #25D366;
+            --text-main: #050505;
+            --text-sub: #65676B;
+            --bg-light: #f0f2f5;
         }
         body {
             font-family: 'Segoe UI', Tahoma, sans-serif;
@@ -117,16 +120,22 @@
         .btn-load { background: var(--primary); }
         .btn-delete { background: var(--danger); }
 
-        .chat-list-item { display: flex; padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; align-items: center; background: white; transition: background 0.2s; }
-        .chat-list-item:active { background: #f9f9f9; }
-        .chat-list-avatar { width: 45px; height: 45px; border-radius: 50%; background: #dfe6e9; display: flex; justify-content: center; align-items: center; font-size: 20px; margin-left: 15px; flex-shrink: 0; }
-        .chat-list-info { flex: 1; overflow: hidden; text-align: right; }
-        .chat-list-name-time { display: flex; justify-content: space-between; margin-bottom: 5px; align-items: center;}
-        .chat-list-name { font-weight: bold; font-size: 16px; color: #2d3436; }
-        .chat-list-time { font-size: 12px; color: #b2bec3; }
+        /* ستايل قائمة الدردشات الجديد */
+        .chat-list-item { 
+            display: flex; padding: 12px 20px; border-bottom: none; cursor: pointer; align-items: center; background: white; transition: background 0.2s; 
+        }
+        .chat-list-item:active { background: var(--bg-light); }
+        .chat-list-avatar { 
+            width: 55px; height: 55px; border-radius: 50%; background: #dfe6e9; display: flex; justify-content: center; align-items: center; font-size: 24px; margin-left: 15px; flex-shrink: 0; 
+        }
+        .chat-list-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; text-align: right; border-bottom: 1px solid #f0f2f5; padding-bottom: 10px; }
+        .chat-list-name-time { display: flex; justify-content: space-between; margin-bottom: 3px; align-items: center; }
+        .chat-list-name { font-weight: bold; font-size: 17px; color: var(--text-main); }
+        .chat-list-time { font-size: 13px; color: var(--text-sub); }
+        .chat-list-time.unread-time { color: var(--wa-light); font-weight: bold; }
         .chat-list-preview-badge { display: flex; justify-content: space-between; align-items: center; }
-        .chat-list-preview { font-size: 13px; color: #636e72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85%; }
-        .chat-list-badge { background: var(--wa-light); color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; font-weight: bold; min-width: 20px; text-align: center; }
+        .chat-list-preview { font-size: 14px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85%; }
+        .chat-list-badge { background: var(--wa-light); color: white; border-radius: 12px; padding: 0 7px; font-size: 12px; font-weight: bold; min-width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
 
         .message-bubble { max-width: 85%; padding: 10px 12px; border-radius: 12px; margin-bottom: 8px; position: relative; font-size: 14px; word-wrap: break-word; }
         .msg-sent { align-self: flex-end; background-color: #dcf8c6; border-top-left-radius: 0; border: 1px solid #c8e6b1; }
@@ -140,6 +149,14 @@
         
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         @keyframes pulseBadge { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        /* شريط التنقل السفلي الوهمي للدردشات */
+        .chat-bottom-nav {
+            display: flex; justify-content: space-around; padding: 12px 25px; border-top: 1px solid #e4e6eb; background: #fafafa; font-size: 11px; color: var(--text-sub); font-weight: bold; text-align: center;
+        }
+        .chat-bottom-nav div { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;}
+        .chat-bottom-nav div.active { color: var(--text-main); }
+        .chat-bottom-nav span.icon { font-size: 22px; }
     </style>
 </head>
 <body>
@@ -201,36 +218,65 @@
     </div>
 
     <div class="modal" id="chatModal">
-        <div class="modal-content" style="width: 100%; max-width: 500px; height: 100vh; max-height: 100vh; padding:0; overflow:hidden; display: flex; flex-direction: column; background:#e5ddd5; border-radius: 0;">
+        <div class="modal-content" style="width: 100%; max-width: 500px; height: 100vh; max-height: 100vh; padding:0; overflow:hidden; display: flex; flex-direction: column; background:white; border-radius: 0;">
             
-            <div id="chatListHeader" style="padding: 15px; background: var(--wa-green); color: white; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: bold; font-size: 18px;">المحادثات</span>
-                <button onclick="closeModal('chatModal')" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">❌</button>
-            </div>
+            <div id="chatListContainer" style="display: flex; flex-direction: column; flex: 1; overflow: hidden; background: white;">
+                
+                <div style="padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; background: white;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button onclick="closeModal('chatModal')" style="background:var(--bg-light); border:none; border-radius:50%; width:35px; height:35px; display:flex; justify-content:center; align-items:center; cursor:pointer;" title="إغلاق">❌</button>
+                        <button style="background:var(--bg-light); border:none; border-radius:50%; width:35px; height:35px; display:flex; justify-content:center; align-items:center; cursor:pointer;">📷</button>
+                        <button style="background:var(--wa-light); color:white; border:none; border-radius:50%; width:35px; height:35px; font-size:22px; display:flex; justify-content:center; align-items:center; cursor:pointer;">+</button>
+                    </div>
+                    <span style="font-weight: 800; font-size: 28px; color: var(--text-main);">الدردشات</span>
+                </div>
 
-            <div id="chatUsersList" style="flex: 1; background: white; overflow-y: auto;">
+                <div style="padding: 5px 15px 15px; border-bottom: 1px solid #f0f2f5;">
+                    <div style="background: var(--bg-light); border-radius: 20px; padding: 10px 15px; display: flex; align-items: center; gap: 10px;">
+                        <span style="color:var(--text-sub); font-size: 16px;">🔍</span>
+                        <input type="text" placeholder="اسأل Meta AI أو ابحث" style="border:none; background:transparent; width:100%; font-size:15px; outline:none; color: var(--text-main);">
+                    </div>
+                </div>
+
+                <div style="padding: 10px 15px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;">
+                    <span style="background: #e7f3eb; color: #1a7f37; padding: 6px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; white-space: nowrap; cursor: pointer;">الكل</span>
+                    <span style="background: var(--bg-light); color: var(--text-main); padding: 6px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; white-space: nowrap; cursor: pointer;">المفضلة</span>
+                </div>
+
+                <div id="chatUsersList" style="flex: 1; overflow-y: auto; background: white;">
+                </div>
+
+                <div class="chat-bottom-nav">
+                    <div onclick="closeModal('chatModal')"><span class="icon">👤</span><span>أنت</span></div>
+                    <div class="active"><span class="icon" style="position:relative;">💬<span id="bottomNavBadge" style="display:none; position:absolute; top:-5px; left:-5px; background:var(--wa-light); color:white; border-radius:50%; padding:2px 5px; font-size:10px;">0</span></span><span>الدردشات</span></div>
+                </div>
+
             </div>
             
             <div id="activeChatArea" style="display:none; flex:1; flex-direction:column; position: relative; height: 100%;">
                 
-                <div style="padding: 10px 15px; background: #ededed; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 15px;">
-                    <button onclick="backToChatList()" style="background:none; border:none; font-size:24px; cursor:pointer; color: var(--wa-green); padding: 0;">🔙</button>
+                <div style="padding: 12px 15px; background: white; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <button onclick="backToChatList()" style="background:none; border:none; font-size:24px; cursor:pointer; color: var(--primary); padding: 0;">🔙</button>
                     <div style="display: flex; flex-direction: column; text-align: right; flex: 1;">
-                        <span id="chatHeaderName" style="font-weight: bold; color: #2c3e50; font-size: 16px;"></span>
-                        <span id="chatHeaderStatus" style="font-size: 12px; color: #7f8c8d;"></span>
+                        <span id="chatHeaderName" style="font-weight: bold; color: var(--text-main); font-size: 17px;"></span>
+                        <span id="chatHeaderStatus" style="font-size: 12px; color: var(--text-sub);"></span>
                     </div>
+                    <button onclick="clearEntireChat()" style="background:none; border:none; font-size:22px; cursor:pointer; color: var(--danger); padding: 5px; border-radius: 50%; display: flex; align-items: center; justify-content: center;" title="مسح المحادثة">🗑️</button>
                 </div>
                 
-                <div id="messagesContainer" style="flex:1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; background: #e5ddd5;">
+                <div id="messagesContainer" style="flex:1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; background: #efeae2;">
                 </div>
                 
                 <div id="chatInputArea" style="padding: 10px; background: #f0f2f5; display: flex; gap: 8px; align-items: center;">
-                    <input type="file" id="fileInput" style="display:none;" onchange="handleFileUpload(event)">
-                    <button onclick="document.getElementById('fileInput').click()" class="chat-action-btn" title="إرفاق ملف/صورة">📎</button>
+                    <label class="chat-action-btn" title="إرفاق ملف/صورة" style="cursor: pointer; margin: 0; padding: 5px; display: inline-flex; align-items: center; justify-content: center;">
+                        📎
+                        <input type="file" id="fileInput" style="display:none;" onchange="handleFileUpload(event)">
+                    </label>
+
                     <button id="micBtn" onclick="toggleRecording()" class="chat-action-btn" title="تسجيل صوتي">🎤</button>
                     
-                    <input type="text" id="chatTextInput" style="flex:1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; font-size:14px; outline:none;" placeholder="اكتب رسالة..." onkeyup="if(event.key==='Enter') sendTextMessage()">
-                    <button onclick="sendTextMessage()" style="background:var(--wa-green); color:white; border:none; border-radius:50%; width:40px; height:40px; font-size:16px; cursor:pointer;">➤</button>
+                    <input type="text" id="chatTextInput" style="flex:1; padding: 12px 15px; border-radius: 20px; border: none; font-size:15px; outline:none; background: white;" placeholder="اكتب رسالة..." onkeyup="if(event.key==='Enter') sendTextMessage()">
+                    <button onclick="sendTextMessage()" style="background:var(--wa-light); color:white; border:none; border-radius:50%; width:40px; height:40px; font-size:16px; cursor:pointer; display:flex; justify-content:center; align-items:center;">➤</button>
                 </div>
             </div>
 
@@ -267,7 +313,7 @@
       authDomain: "msl2-841a3.firebaseapp.com",
       databaseURL: "https://msl2-841a3-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "msl2-841a3",
-      storageBucket: "msl2-841a3.firebasestorage.app",
+      storageBucket: "msl2-841a3.appspot.com", 
       messagingSenderId: "738131472795",
       appId: "1:738131472795:web:77193cde0333cea72f713e",
       measurementId: "G-NS3KXW5VX7"
@@ -356,7 +402,7 @@
     function initGlobalStatusListener() {
         db.ref('/users_status/').on('value', snap => {
             globalUsersStatus = snap.val() || {};
-            if (document.getElementById('chatListHeader').style.display !== 'none') {
+            if (document.getElementById('chatListContainer').style.display !== 'none') {
                 renderChatUsersList();
             }
         });
@@ -368,7 +414,7 @@
         Object.keys(USERS).forEach(partner => {
             if (partner === currentUser) return; 
             
-            if (!chatMetadata[partner]) chatMetadata[partner] = { lastMsgTime: 0, unreadCount: 0, lastMsgText: '', isInitialLoad: true };
+            if (!chatMetadata[partner]) chatMetadata[partner] = { lastMsgTime: 0, unreadCount: 0, lastMsgText: '', isInitialLoad: true, lastMsgSender: '' };
             
             const roomId = getRoomId(currentUser, partner);
             const chatRef = db.ref('chats/' + roomId);
@@ -380,6 +426,7 @@
                 if (msg.timestamp > chatMetadata[partner].lastMsgTime) {
                     chatMetadata[partner].lastMsgTime = msg.timestamp;
                     chatMetadata[partner].lastMsgText = msg.type === 'text' ? msg.content : (msg.type === 'session' ? '📁 جلسة عمل' : (msg.type === 'audio' ? '🎙️ مقطع صوتي' : '📎 مرفق'));
+                    chatMetadata[partner].lastMsgSender = msg.sender;
                 }
 
                 if (msg.sender !== currentUser && !msg.isRead) {
@@ -392,7 +439,15 @@
                 }
                 
                 updateGlobalBadge();
-                if (document.getElementById('chatListHeader').style.display !== 'none') renderChatUsersList();
+                if (document.getElementById('chatListContainer').style.display !== 'none') renderChatUsersList();
+            });
+
+            // تحديث الواجهة إذا تم مسح رسالة من طرف آخر
+            chatRef.on('child_removed', () => {
+                if (document.getElementById('chatListContainer').style.display !== 'none') {
+                    // يمكنك جلب آخر رسالة مرة أخرى لتحديث الواجهة الخارجية، أو تركها هكذا للتبسيط
+                    renderChatUsersList(); 
+                }
             });
 
             chatRef.limitToLast(20).once('value', () => {
@@ -407,23 +462,31 @@
                     unreadMessagesTracker.delete(msgId);
                     chatMetadata[partner].unreadCount = Math.max(0, chatMetadata[partner].unreadCount - 1);
                     updateGlobalBadge();
-                    if (document.getElementById('chatListHeader').style.display !== 'none') renderChatUsersList();
+                    if (document.getElementById('chatListContainer').style.display !== 'none') renderChatUsersList();
                 }
             });
         });
     }
 
     function updateGlobalBadge() {
+        const size = unreadMessagesTracker.size;
+        
         const badge = document.getElementById('globalUnreadBadge');
         if(badge) {
-            badge.innerText = unreadMessagesTracker.size;
-            if(unreadMessagesTracker.size > 0) {
+            badge.innerText = size;
+            if(size > 0) {
                 badge.style.display = 'inline-block';
                 badge.classList.add('unread-pulse');
             } else {
                 badge.style.display = 'none';
                 badge.classList.remove('unread-pulse');
             }
+        }
+
+        const bottomBadge = document.getElementById('bottomNavBadge');
+        if(bottomBadge) {
+            bottomBadge.innerText = size;
+            bottomBadge.style.display = size > 0 ? 'inline-block' : 'none';
         }
     }
 
@@ -440,32 +503,35 @@
             });
 
         sortedPartners.forEach(partner => {
-            const meta = chatMetadata[partner] || { lastMsgTime: 0, unreadCount: 0, lastMsgText: '' };
+            const meta = chatMetadata[partner] || { lastMsgTime: 0, unreadCount: 0, lastMsgText: '', lastMsgSender: '' };
             let timeStr = '';
             
             if (meta.lastMsgTime > 0) {
                 const date = new Date(meta.lastMsgTime);
                 const isToday = new Date().toDateString() === date.toDateString();
-                timeStr = isToday ? date.toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'}) : date.toLocaleDateString('ar-IQ', {month:'short', day:'numeric'});
+                timeStr = isToday ? date.toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'}) : 'أمس';
             }
             
             const isOnline = globalUsersStatus[partner] && globalUsersStatus[partner].online;
-            const statusIndicator = isOnline ? '<span style="color:#27ae60; font-size:11px; font-weight:bold; background: #eafaf1; padding: 2px 6px; border-radius: 10px;">🟢 متصل</span>' : '';
+            const statusIndicator = isOnline ? '<span style="color:#25D366; font-size:10px; margin-right:5px;">🟢</span>' : '';
+            const unreadClass = meta.unreadCount > 0 ? 'unread-time' : '';
             
+            const sentTick = (meta.lastMsgSender === currentUser && meta.lastMsgTime > 0) ? '<span style="color:#65676B; font-size:12px; margin-left:3px;">✓✓</span>' : '';
+
             const div = document.createElement('div');
             div.className = 'chat-list-item';
             div.innerHTML = `
                 <div class="chat-list-avatar">👤</div>
                 <div class="chat-list-info">
                     <div class="chat-list-name-time">
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="display: flex; align-items: center;">
                             <span class="chat-list-name">${partner}</span>
                             ${statusIndicator}
                         </div>
-                        <span class="chat-list-time">${timeStr}</span>
+                        <span class="chat-list-time ${unreadClass}">${timeStr}</span>
                     </div>
                     <div class="chat-list-preview-badge">
-                        <span class="chat-list-preview">${escapeChatHtml(meta.lastMsgText) || 'اضغط لبدء المراسلة...'}</span>
+                        <span class="chat-list-preview">${sentTick} ${escapeChatHtml(meta.lastMsgText) || 'اضغط لبدء المراسلة...'}</span>
                         ${meta.unreadCount > 0 ? `<span class="chat-list-badge">${meta.unreadCount}</span>` : ''}
                     </div>
                 </div>
@@ -474,8 +540,7 @@
             listContainer.appendChild(div);
         });
         
-        document.getElementById('chatListHeader').style.display = 'flex';
-        document.getElementById('chatUsersList').style.display = 'block';
+        document.getElementById('chatListContainer').style.display = 'flex';
         document.getElementById('activeChatArea').style.display = 'none';
     }
 
@@ -483,8 +548,7 @@
         currentChatPartner = partnerName;
         document.getElementById('chatHeaderName').innerText = partnerName;
         
-        document.getElementById('chatListHeader').style.display = 'none';
-        document.getElementById('chatUsersList').style.display = 'none';
+        document.getElementById('chatListContainer').style.display = 'none';
         document.getElementById('activeChatArea').style.display = 'flex';
         
         if (statusListenerRef) statusListenerRef.off();
@@ -494,16 +558,16 @@
             const statusEl = document.getElementById('chatHeaderStatus');
             if (status && status.online) {
                 statusEl.innerText = 'متصل حالياً';
-                statusEl.style.color = '#27ae60';
+                statusEl.style.color = 'var(--wa-light)';
             } else if (status && status.last_seen) {
                 const date = new Date(status.last_seen);
                 const isToday = new Date().toDateString() === date.toDateString();
                 const dayStr = isToday ? 'اليوم' : date.toLocaleDateString('ar-IQ');
                 statusEl.innerText = `آخر ظهور: ${dayStr} ${date.toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}`;
-                statusEl.style.color = '#7f8c8d';
+                statusEl.style.color = 'var(--text-sub)';
             } else {
                 statusEl.innerText = 'غير متصل';
-                statusEl.style.color = '#7f8c8d';
+                statusEl.style.color = 'var(--text-sub)';
             }
         });
 
@@ -512,8 +576,6 @@
         const roomId = getRoomId(currentUser, partnerName);
 
         if (chatListenerRef) chatListenerRef.off();
-        
-        // ربط المستمع كـ Query محدد بدلاً من مسار عام للتمكن من فصله لاحقاً بأمان
         chatListenerRef = db.ref('chats/' + roomId).limitToLast(50);
 
         chatListenerRef.on('child_added', (snapshot) => {
@@ -529,11 +591,17 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight; 
         });
 
-        // المستمع الجديد لمراقبة التغييرات المباشرة (الصحين الزرق)
         chatListenerRef.on('child_changed', (snapshot) => {
             const msg = snapshot.val();
             msg.id = snapshot.key;
             renderMessage(msg);
+        });
+
+        // الاستماع لحذف الرسائل من قواعد البيانات مباشرة
+        chatListenerRef.on('child_removed', (snapshot) => {
+            const msgId = snapshot.key;
+            const msgDiv = document.getElementById('msg-' + msgId);
+            if(msgDiv) msgDiv.remove();
         });
     }
 
@@ -544,10 +612,34 @@
         renderChatUsersList();
     }
 
+    // دالة حذف الرسالة
+    function deleteMessage(msgId) {
+        if(confirm("هل أنت متأكد من حذف هذه الرسالة؟")) {
+            const roomId = getRoomId(currentUser, currentChatPartner);
+            db.ref('chats/' + roomId + '/' + msgId).remove()
+            .catch(e => alert("خطأ أثناء حذف الرسالة: " + e.message));
+        }
+    }
+
+    // دالة مسح المحادثة بالكامل
+    function clearEntireChat() {
+        if(!currentChatPartner) return;
+        if(confirm("هل أنت متأكد من مسح جميع رسائل المحادثة بالكامل؟ لا يمكن التراجع عن هذا الإجراء.")) {
+            const roomId = getRoomId(currentUser, currentChatPartner);
+            db.ref('chats/' + roomId).remove()
+            .then(() => {
+                document.getElementById('messagesContainer').innerHTML = '';
+                // تصفير بيانات هذا المستخدم من المحادثات لعدم عرض رسالة محذوفة
+                chatMetadata[currentChatPartner] = { lastMsgTime: 0, unreadCount: 0, lastMsgText: '', isInitialLoad: false, lastMsgSender: '' };
+                showToast("تم مسح المحادثة بالكامل 🗑️");
+            })
+            .catch(e => alert("حدث خطأ أثناء مسح المحادثة: " + e.message));
+        }
+    }
+
     function renderMessage(msg) {
         const container = document.getElementById('messagesContainer');
         
-        // البحث عن الرسالة إذا كانت موجودة مسبقاً (لتحديثها بدل تكرارها)
         let div = document.getElementById('msg-' + msg.id);
         let isNew = false;
         
@@ -573,14 +665,17 @@
         }
         
         const time = new Date(msg.timestamp).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'});
+        const tickMark = isMe ? (msg.isRead ? '<span style="color:#34db7a; font-weight:bold; font-size:12px;">✓✓</span>' : '<span style="color:#999; font-size:12px;">✓</span>') : '';
         
-        // تحديث العلامات: رمادي للرسالة المرسلة، أزرق عريض للمقروءة
-        const tickMark = isMe ? (msg.isRead ? '<span style="color:#3498db; font-weight:bold; font-size:12px;">✓✓</span>' : '<span style="color:#999; font-size:12px;">✓</span>') : '';
-        
+        // زر حذف الرسالة المضاف بجوار الوقت
         div.innerHTML = `
             <div style="color: #2c3e50;">${contentHtml}</div>
-            <div style="font-size:10px; color:#999; margin-top:5px; text-align:left; direction:ltr;">
-                ${time} ${tickMark}
+            <div style="font-size:10px; color:#999; margin-top:5px; display:flex; justify-content:space-between; align-items:center; direction:ltr;">
+                <div style="display:flex; gap:5px; align-items:center;">
+                    <span>${time}</span>
+                    <span>${tickMark}</span>
+                </div>
+                <button onclick="deleteMessage('${msg.id}')" style="background:none; border:none; cursor:pointer; font-size:14px; padding:0; opacity: 0.5; transition: 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="حذف الرسالة">🗑️</button>
             </div>
         `;
         
@@ -609,46 +704,92 @@
     function handleFileUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
-        uploadToStorage(file, file.type.startsWith('image/') ? 'image' : 'file');
-        event.target.value = ''; 
+        
+        let type = 'file';
+        if (file.type && file.type.startsWith('image/')) type = 'image';
+        else if (file.name && file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)) type = 'image';
+        
+        uploadToStorage(file, type, file.name);
+        setTimeout(() => { event.target.value = ''; }, 1000);
     }
 
-    function uploadToStorage(file, type) {
+    function uploadToStorage(fileOrBlob, type, customFileName) {
         if(!currentChatPartner) return;
-        showToast("جاري الرفع... ⏳");
-        const roomId = getRoomId(currentUser, currentChatPartner);
-        const storageRef = storage.ref(`chat_attachments/${roomId}/${Date.now()}_${file.name}`);
-        storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL())
-        .then(url => { sendAttachmentMessage(url, type, file.name); showToast("تم الإرسال ✅"); })
-        .catch(err => alert("فشل الرفع: " + err.message));
+        
+        showToast("جاري الرفع يرجى الانتظار... ⏳");
+        
+        try {
+            const roomId = getRoomId(currentUser, currentChatPartner);
+            const safeFileName = customFileName || (fileOrBlob.name ? fileOrBlob.name : `attachment_${Date.now()}`);
+            const storageRef = storage.ref(`chat_attachments/${roomId}/${Date.now()}_${safeFileName}`);
+            
+            const uploadTask = storageRef.put(fileOrBlob);
+            
+            uploadTask.on('state_changed', 
+                (snapshot) => { }, 
+                (error) => {
+                    console.error("Storage Error:", error);
+                    alert("فشل الرفع! السبب: " + error.message + "\n\n(تأكد من تعديل Storage Rules إلى allow read, write: if true; في لوحة تحكم Firebase)");
+                }, 
+                () => {
+                    uploadTask.snapshot.ref.getDownloadURL().then(url => { 
+                        sendAttachmentMessage(url, type, safeFileName); 
+                        showToast("تم الإرسال ✅"); 
+                    });
+                }
+            );
+        } catch (error) {
+            alert("حدث خطأ محلي أثناء محاولة الرفع: " + error.message);
+        }
     }
 
-    function sendAttachmentMessage(url, type, fileName = '') {
+    function sendAttachmentMessage(url, type, safeFileName) {
+        if (!currentChatPartner) return;
         const roomId = getRoomId(currentUser, currentChatPartner);
         db.ref('chats/' + roomId).push().set({
-            sender: currentUser, type: type, content: type === 'image' ? 'صورة' : (type === 'audio' ? 'تسجيل صوتي' : fileName),
-            fileUrl: url, timestamp: firebase.database.ServerValue.TIMESTAMP, isRead: false
+            sender: currentUser, type: type, fileUrl: url, fileName: safeFileName, timestamp: firebase.database.ServerValue.TIMESTAMP, isRead: false
         });
     }
 
     async function toggleRecording() {
         const micBtn = document.getElementById('micBtn');
+        
         if (!isRecording) {
             try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    alert("عذراً، متصفحك الحالي لا يدعم تسجيل الصوت أو أنك لا تستخدم اتصالاً آمناً (HTTPS).");
+                    return;
+                }
+
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
+                
                 mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
+                
                 mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    uploadToStorage(new File([audioBlob], "audio_record.webm", { type: 'audio/webm' }), 'audio');
+                    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+                    const mimeType = isSafari ? 'audio/mp4' : 'audio/webm';
+                    const ext = isSafari ? 'mp4' : 'webm';
+                    
+                    const audioBlob = new Blob(audioChunks, { type: mimeType });
+                    uploadToStorage(audioBlob, 'audio', `audio_record_${Date.now()}.${ext}`);
+                    
                     stream.getTracks().forEach(track => track.stop()); 
                 };
-                mediaRecorder.start(); isRecording = true; micBtn.classList.add('recording');
+                
+                mediaRecorder.start(); 
+                isRecording = true; 
+                micBtn.classList.add('recording');
                 showToast("جاري التسجيل... 🎙️ (انقر للإرسال)");
-            } catch(err) { alert("لا يمكن الوصول للمايكروفون. تأكد من إعطاء الصلاحيات."); }
+                
+            } catch(err) { 
+                alert("لم تسمح للمتصفح باستخدام المايكروفون. يرجى إعطاء الصلاحية من إعدادات المتصفح."); 
+            }
         } else {
-            mediaRecorder.stop(); isRecording = false; micBtn.classList.remove('recording');
+            mediaRecorder.stop(); 
+            isRecording = false; 
+            micBtn.classList.remove('recording');
         }
     }
 
@@ -829,11 +970,25 @@
         closeModal('sendModal');
         const roomId = getRoomId(currentUser, targetUser);
         const itemsCopy = JSON.parse(JSON.stringify(sessionItems));
-        db.ref('chats/' + roomId).push().set({
-            sender: currentUser, type: 'session', content: '', timestamp: firebase.database.ServerValue.TIMESTAMP, isRead: false, 
-            sessionData: { sessionType: 'main', sessionData: itemsCopy, itemsCount: itemsCopy.length }
-        }).then(() => {
-            alert(`تم إرسال الجلسة إلى د. ${targetUser} بنجاح! ✅`); logSentSession(targetUser, itemsCopy); sessionItems = []; renderSessionList();
+        
+        const msgData = {
+            sender: currentUser, 
+            type: 'session', 
+            content: '',
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            isRead: false, 
+            sessionData: {
+                sessionType: 'main',
+                sessionData: itemsCopy,
+                itemsCount: itemsCopy.length
+            }
+        };
+
+        db.ref('chats/' + roomId).push().set(msgData).then(() => {
+            alert(`تم إرسال الجلسة إلى د. ${targetUser} بنجاح! ✅`); 
+            logSentSession(targetUser, itemsCopy); 
+            sessionItems = []; 
+            renderSessionList();
         }).catch(e => alert("حدث خطأ أثناء الإرسال: " + e.message));
     }
 
